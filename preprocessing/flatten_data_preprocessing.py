@@ -13,12 +13,24 @@ for i in range(len(weaponIds)):
     weaponIdsMap[weaponIds[i]] = i + 1
 
 
+def get_binary_encoding(num):
+    res = []
+    for i in range(6):
+        res.append(num % 2)
+        num //= 2
+    return list(reversed(res))
+
+
 def get_weapon_encoding(weaponIds):
-    res = [0, 0]
+    res = []
     if len(weaponIds) > 0:
-        res[0] = weaponIdsMap[weaponIds[0]]
+        res += get_binary_encoding(weaponIdsMap[weaponIds[0]])
+    else:
+        res += get_binary_encoding(0)
     if len(weaponIds) > 1:
-        res[1] = weaponIdsMap[weaponIds[1]]
+        res += get_binary_encoding(weaponIdsMap[weaponIds[1]])
+    else:
+        res += get_binary_encoding(0)
     return res
 
 
@@ -41,8 +53,8 @@ for fileName in fileNames:
             if obj['id'] in dataSet[game_id][1]:
                 dataSet[game_id][1][obj['id']].append(
                     [round(obj['State']['ap']['current'] / obj['State']['ap']['max'], 2),
-                     round(obj['State']['hp']['current'] / obj['State']['hp']['max'], 2),
-                     dataSet[game_id][1][obj['id']][-1][-1]])
+                     round(obj['State']['hp']['current'] / obj['State']['hp']['max'], 2)] +
+                    dataSet[game_id][1][obj['id']][-1][2:])
                 for timeStep in dataSet[game_id][1][obj['id']]:
                     if 'eq' in obj and 'weaponIds' in obj['eq']:
                         timeStep.extend(get_weapon_encoding(obj['eq']["weaponIds"]))
@@ -51,8 +63,8 @@ for fileName in fileNames:
             elif obj['id'] in dataSet[game_id][2]:
                 dataSet[game_id][2][obj['id']].append(
                     [round(obj['State']['ap']['current'] / obj['State']['ap']['max'], 2),
-                     round(obj['State']['hp']['current'] / obj['State']['hp']['max'], 2),
-                     dataSet[game_id][2][obj['id']][-1][-1]])
+                     round(obj['State']['hp']['current'] / obj['State']['hp']['max'], 2)] +
+                    dataSet[game_id][2][obj['id']][-1][2:])
                 for timeStep in dataSet[game_id][2][obj['id']]:
                     if 'eq' in obj and 'weaponIds' in obj['eq']:
                         timeStep.extend(get_weapon_encoding(obj['eq']["weaponIds"]))

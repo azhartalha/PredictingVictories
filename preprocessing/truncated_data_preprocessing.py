@@ -2,6 +2,13 @@ import json
 import pickle
 from os import walk
 
+def get_binary_encoding(num):
+    res = []
+    for i in range(3):
+        res.append(num % 2)
+        num //= 2
+    return list(reversed(res))
+
 unitTypeMap = {"Assault": 0,
                "Heavy": 1,
                "Scout": 2,
@@ -68,9 +75,9 @@ for fileName in fileNames:
         for obj in objects:
             if obj['classId'] is not None and obj['classId'].startswith("unt"):
                 if obj["ownerId"] == 0:
-                    dataSet[game_id][1][obj["id"]] = [[1.0, 1.0, unitTypeMap[obj['asset']]]]
+                    dataSet[game_id][1][obj["id"]] = [[1.0, 1.0] + get_binary_encoding(unitTypeMap[obj['asset']])]
                 else:
-                    dataSet[game_id][2][obj["id"]] = [[1.0, 1.0, unitTypeMap[obj['asset']]]]
+                    dataSet[game_id][2][obj["id"]] = [[1.0, 1.0] + get_binary_encoding(unitTypeMap[obj['asset']])]
 
         for state in data["States"]:
             if state['t'] == 0.0:
