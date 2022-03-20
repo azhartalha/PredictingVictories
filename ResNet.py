@@ -1,28 +1,46 @@
 import tensorflow as tf
 import tensorflow.keras as keras
 import numpy as np
-import time
-import matplotlib
+import random
 import pickle
-import sklearn
-
-from tensorflow.keras.layers import Embedding, Dense, LSTM
-from tensorflow.keras.losses import BinaryCrossentropy
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.preprocessing.sequence import pad_sequences
-from tensorflow.keras.utils import to_categorical
-from sklearn import preprocessing
+import matplotlib.pyplot as plt
 
 # Model configuration
-additional_metrics = ['accuracy']
-batch_size = 16
-loss_function = BinaryCrossentropy()
-max_sequence_length = 119
-number_of_epochs = 1500
-optimizer = Adam(learning_rate = 0.001)
-validation_split = 0.20
-verbosity_mode = 1
+features = 8 * (2 + 3 + 12) # features of 8 units
+batch_size = 128
+loss_function = tf.keras.losses.BinaryCrossentropy()
+optimizer = tf.keras.optimizers.Adam(learning_rate = 0.001)
+number_epochs = 10
+n_feature_maps = 64
+
+def bring_batch_to_same_length(x_batch, max_length):
+    for game in x_batch:
+        for i in range(len(game), max_length):
+            game.append(game[-1])
+
+def generator(xData, yData, batch_size):
+    samples_per_epoch = len(xData)
+    number_of_batches = samples_per_epoch / batch_size
+    counter = 0
+
+    while True:
+        x_batch = xData[batch_size * counter:batch_size * (counter + 1)]
+        y_batch = np.array(yData[batch_size * counter:batch_size * (counter + 1)], dtype='float32')
+
+        bring_batch_to_same_length(x_batch, max_length)
+        x_batch = np.array(x_batch, dtype='float32')
+        # x_batch = tf.keras.preprocessing.sequence.pad_sequences(x_batch, padding="post", value=99.0, dtype='float32')
+
+        counter += 1
+        yield x_batch, y_batch
+
+        if counter >= number_of_batches:
+            data = list(zip(xData, yData))
+            random.shuffle(data)
+            xData, yData = zip(*data)
+            xData = list(xData)
+            yData = list(yData)
+            counter = 0
 
 # Disable eager execution
 tf.compat.v1.disable_eager_execution()
@@ -31,22 +49,26 @@ tf.compat.v1.disable_eager_execution()
 x = []
 y = []
 
-# Need dataset with same length. Cannot use Keras masking and padding.
-with open('x_same_length.pkl', 'rb') as f:
+with open('x.pkl', 'rb') as f:
     x = pickle.load(f)
-x = np.array(x)
-    
+
 with open('y.pkl', 'rb') as f:
     y = pickle.load(f)
 
-x = np.array(x)
-y = np.array(y, dtype='float32')
+max_length = 0
+for game in x:
+    max_length = max(max_length, len(game))
 
-n_feature_maps = 64
+data = list(zip(x, y))
+random.shuffle(data)
+x, y = zip(*data)
 
-nb_classes = 2
+x_train = list(x[:(4 * len(x))//5])
+x_val = list(x[(4*len(x))//5:])
+y_train = list(y[:(4 * len(x))//5])
+y_val = list(y[(4*len(x))//5:])
 
-input_shape = x.shape[1:]
+input_shape = (max_length, features)
 
 input_layer = keras.layers.Input(input_shape)
 
@@ -56,7 +78,6 @@ input_layer = keras.layers.Input(input_shape)
 # vol. 33, no. 4, Springer US, 2019, pp. 917–63, doi: 10.1007/s10618-019-00619-1.
 
 # ********* Slightly modified to accomodate for binary classification *********
-# ********* NEED TO CONFIRM THAT THE CHANGES ARE CORRECT **********************
 
  # BLOCK 1
 
@@ -125,12 +146,34 @@ output_layer = keras.layers.Dense(1, activation='sigmoid')(gap_layer)
 
 model = keras.models.Model(inputs=input_layer, outputs=output_layer)
 
-model.compile(optimizer=optimizer, loss=loss_function, metrics=additional_metrics)
+model.compile(optimizer=optimizer, loss=loss_function, metrics=['accuracy', tf.keras.metrics.AUC()])
         
 # Give the model summary
 model.summary()
 
 # Train the model
-history = model.fit(x, y, batch_size=batch_size, epochs=number_of_epochs, verbose=verbosity_mode, validation_split=validation_split)
+history = model.fit_generator(generator(x_train, y_train, batch_size), epochs=number_epochs,
+                              steps_per_epoch=len(x_train)//batch_size,
+                              validation_data=generator(x_val, y_val, batch_size),
+                              validation_steps=len(x_val)//batch_size)
 
+plt.plot(history.history['accuracy'])
+plt.plot(history.history['val_accuracy'])
+plt.xlabel("Epochs")
+plt.ylabel("Accuracy")
+plt.legend(["training_acc", "validation_acc"])
+plt.show()
 
+plt.plot(history.history['auc'])
+plt.plot(history.history['val_auc'])
+plt.xlabel("Epochs")
+plt.ylabel("AUC")
+plt.legend(["training_AUC", "validation_AUC"])
+plt.show()
+
+plt.plot(history.history['loss'])
+plt.plot(history.history['val_loss'])
+plt.xlabel("Epochs")
+plt.ylabel("Loss")
+plt.legend(["training_loss", "validation_loss"])
+plt.show()
