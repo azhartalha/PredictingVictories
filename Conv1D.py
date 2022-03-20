@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 from keras.models import Model
 from keras.layers import Input, Dense, Activation
-from keras.layers import Conv1D, BatchNormalization, GlobalAveragePooling1D
+from keras.layers import Conv1D, BatchNormalization, GlobalAveragePooling1D, GlobalMaxPool1D
 
 # Model configuration
 features = 8 * (2 + 3 + 12)
@@ -81,8 +81,10 @@ input_layer = keras.layers.Input(input_shape)
 yy = Conv1D(nfilters, kernel_size, padding='same', kernel_initializer='he_uniform')(input_layer)
 yy = BatchNormalization()(yy)
 yy = Activation('relu')(yy)
-yy = GlobalAveragePooling1D()(yy)
+yy = GlobalMaxPool1D()(yy)
+#yy = GlobalAveragePooling1D()(yy)
 out = Dense(1, activation='sigmoid')(yy)
+
 model = Model(input_layer, out)
 
 model.compile(optimizer=optimizer, loss=loss_function, metrics=['accuracy',tf.keras.metrics.AUC()])
